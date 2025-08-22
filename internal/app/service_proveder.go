@@ -3,26 +3,28 @@ package app
 import (
 	"lo/internal/controllers"
 	"lo/internal/controllers/taskctrl"
+	"lo/internal/logger"
 )
 
 type serviceProvider struct {
-	logChan chan string
+	logger *logger.Logger
 
 	taskctrl controllers.TaskController
 }
 
 func newServiceProvider() *serviceProvider {
-	return &serviceProvider{
-		logChan: make(chan string),
-	}
+	return &serviceProvider{}
 }
 
-func (s *serviceProvider) LogChan() chan string {
-	if s.logChan == nil {
-		s.logChan = make(chan string)
+func (s *serviceProvider) Logger() *logger.Logger {
+	if s.logger == nil {
+		s.logger = logger.New(
+			logger.WithWorkers(5),
+			logger.WithBuffer(100),
+		)
 	}
 
-	return s.logChan
+	return s.logger
 }
 
 func (s *serviceProvider) TaskController() controllers.TaskController {

@@ -3,15 +3,37 @@ package logger
 import (
 	"context"
 	"fmt"
+	"lo/internal/domain/logs"
+	"sync"
 )
 
-type Logger struct {
-	logChan <-chan string
+type Option func(*Logger)
+
+func WithWorkers(workers int) Option {
+	return func(l *Logger) {
+		l.workers = workers
+	}
 }
 
-func New(ch <-chan string) *Logger {
+func WithBuffer(buffer int) Option {
+	return func(l *Logger) {
+		l.buffer = buffer
+	}
+}
+
+type Logger struct {
+	logChan  chan logs.LogMsg
+	stopChan chan struct{}
+	workers  int
+	buffer   int
+	wg       *sync.WaitGroup
+}
+
+func New(opts ...Option) *Logger {
 	return &Logger{
-		logChan: ch,
+		logChan:  make(chan logs.LogMsg),
+		stopChan: make(chan struct{}),
+		wg:       &sync.WaitGroup{},
 	}
 }
 
@@ -24,8 +46,7 @@ func (l *Logger) Run(ctx context.Context) error {
 			l.Stop()
 			return nil
 		case log := <-l.logChan:
-			fmt.Println("logger get new log")
-			l.WriteLog(log)
+			fmt.Println("logger get new log", log)
 		}
 	}
 }
@@ -34,6 +55,9 @@ func (l *Logger) Stop() {
 	fmt.Println("Logger.Stop()")
 }
 
-func (l *Logger) WriteLog(in string) {
-	fmt.Println("Logger write log", in)
+func (l *Logger) Write(in logs.LogMsg) {
+	go func() {
+		fmt.Println(l.logChan == nil)
+		l.logChan <- in
+	}()
 }

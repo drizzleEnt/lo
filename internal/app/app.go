@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"lo/internal/logger"
 	"lo/internal/routes"
 	"log"
 	"net/http"
@@ -14,11 +13,18 @@ import (
 
 type Option func(*App)
 
+func WithLogger() Option {
+	return func(a *App) {
+		// if a.logger == nil{
+		// 	a.logger = logger.New(a.sp.LogChan())
+		// }
+	}
+}
+
 type App struct {
 	sp *serviceProvider
 
-	srv    *http.Server
-	logger *logger.Logger
+	srv *http.Server
 }
 
 func New(ctx context.Context, opts ...Option) (*App, error) {
@@ -37,7 +43,7 @@ func New(ctx context.Context, opts ...Option) (*App, error) {
 
 func (a *App) Run(ctx context.Context, cancel context.CancelFunc) error {
 	go func() {
-		if err := a.logger.Run(ctx); err != nil {
+		if err := a.sp.Logger().Run(ctx); err != nil {
 			os.Exit(1)
 		}
 	}()
@@ -66,7 +72,7 @@ func (a *App) Run(ctx context.Context, cancel context.CancelFunc) error {
 	log.Println("http server stopped")
 
 	log.Println("Shutting down logger")
-	a.logger.Stop()
+	a.sp.Logger().Stop()
 	log.Println("Logger stopped")
 
 	return nil
@@ -95,7 +101,7 @@ func (a *App) initServiceProvider(_ context.Context) error {
 func (a *App) initHttpSrv(ctx context.Context) error {
 	srv := &http.Server{
 		Addr:           "localhost:8080",
-		Handler:        routes.InitRoutes(a.sp.TaskController()),
+		Handler:        routes.InitRoutes(a.sp.TaskController(), a.sp.Logger()),
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
