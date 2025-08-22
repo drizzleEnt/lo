@@ -2,49 +2,53 @@ package routes
 
 import (
 	"lo/internal/controllers"
+	"lo/internal/middlerware"
 	"net/http"
 )
 
-func InitRoutes(c controllers.TaskController) http.Handler {
+func InitRoutes(c controllers.TaskController, logger middlerware.Logger) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/tasks", func(w http.ResponseWriter, r *http.Request) {
+	logMW := middlerware.Logging(logger)
+	errMW := middlerware.ErrorLogging(logger)
+
+	common := withCommon(logMW, errMW)
+
+	mux.Handle("/tasks", adapt(c.GetTasks, common...))
+
+	mux.Handle("/task", adapt(func(w http.ResponseWriter, r *http.Request) error {
 		switch r.Method {
 		case http.MethodGet:
-			if err := c.GetTasks(w, r); err != nil {
-
-			}
-		default:
-			ErrorMethod(w, r)
-		}
-	})
-
-	mux.HandleFunc("/task", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			if err := c.GetTaskById(w, r); err != nil {
-
-			}
+			return c.GetTaskById(w, r)
 		case http.MethodPost:
-			if err := c.CreateTask(w, r); err != nil {
-
-			}
+			return c.CreateTask(w, r)
 		default:
 			ErrorMethod(w, r)
 		}
-	})
+		return nil
+	}, common...))
 
 	return mux
 }
 
-func AuthMiddleware() {
-
-}
-
-func LogMiddleware() {
-
-}
-
 func ErrorMethod(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusMethodNotAllowed)
+}
+
+type Middleware func(next middlerware.HandlerWithErr) middlerware.HandlerWithErr
+
+func adapt(h middlerware.HandlerWithErr, middlewares ...Middleware) http.HandlerFunc {
+	for i := len(middlewares) - 1; i >= 0; i-- {
+		h = middlewares[i](h)
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := h(w, r); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+}
+
+func withCommon(mw ...Middleware) []Middleware {
+	return mw
 }
