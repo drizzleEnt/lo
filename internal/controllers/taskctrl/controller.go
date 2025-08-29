@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 func New() *controller {
@@ -37,11 +38,13 @@ func (c *controller) GetTaskById(w http.ResponseWriter, r *http.Request) error {
 
 // GetTasks implements controllers.TaskController.
 func (c *controller) GetTasks(w http.ResponseWriter, r *http.Request) error {
-	fmt.Println("GetTasks")
+	fmt.Println("TaskController.GetTasks")
 	ok := r.URL.Query().Get("err")
 	if ok != "" {
 		return fmt.Errorf("some error")
 	}
+
+	time.Sleep(5 * time.Second)
 
 	return nil
 }

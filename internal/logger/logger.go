@@ -57,7 +57,6 @@ func (l *Logger) Stop() {
 
 func (l *Logger) Write(in logs.LogMsg) {
 	go func() {
-		fmt.Println(l.logChan == nil)
 		l.logChan <- in
 	}()
 }
