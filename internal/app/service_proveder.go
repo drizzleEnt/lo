@@ -19,8 +19,7 @@ func newServiceProvider() *serviceProvider {
 func (s *serviceProvider) Logger() *logger.Logger {
 	if s.logger == nil {
 		s.logger = logger.New(
-			logger.WithWorkers(5),
-			logger.WithBuffer(100),
+			logger.WithSemaphore(100),
 		)
 	}
 

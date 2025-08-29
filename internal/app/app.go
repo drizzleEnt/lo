@@ -2,6 +2,9 @@ package app
 
 import (
 	"context"
+	"fmt"
+	"lo/internal/domain/logs"
+	"lo/internal/logger"
 	"lo/internal/routes"
 	"log"
 	"net/http"
@@ -41,12 +44,34 @@ func New(ctx context.Context, opts ...Option) (*App, error) {
 	return a, nil
 }
 
-func (a *App) Run(ctx context.Context, cancel context.CancelFunc) error {
-	go func() {
-		if err := a.sp.Logger().Run(ctx); err != nil {
-			os.Exit(1)
+func (a *App) TestingCalls() {
+	t := time.NewTicker(1 * time.Millisecond)
+
+	ct, c := context.WithTimeout(context.Background(), 10*time.Second)
+	defer c()
+
+l:
+	for {
+		select {
+		case <-t.C:
+			a.sp.Logger().Write(logs.LogMsg{
+				Msg: time.Now().String(),
+			})
+		case <-ct.Done():
+			break l
 		}
-	}()
+	}
+
+	ca, gc := logger.Stats()
+	fmt.Println("Results")
+	fmt.Printf("total calls: %v\n", ca)
+	fmt.Printf("goroutines created: %v\n", gc)
+	fmt.Println("end")
+}
+
+func (a *App) Run(ctx context.Context, cancel context.CancelFunc) error {
+	// a.TestingCalls()
+	// return nil
 
 	go func() {
 		if err := a.runHttpServer(); err != nil {
@@ -70,10 +95,6 @@ func (a *App) Run(ctx context.Context, cancel context.CancelFunc) error {
 		return err
 	}
 	log.Println("http server stopped")
-
-	log.Println("Shutting down logger")
-	a.sp.Logger().Stop()
-	log.Println("Logger stopped")
 
 	return nil
 }
