@@ -23,6 +23,12 @@ func InfoLog(logger Logger, r *http.Request) func(r *http.Request) {
 func Logging(logger Logger) func(next HandlerWithErr) HandlerWithErr {
 	return func(next HandlerWithErr) HandlerWithErr {
 		return func(w http.ResponseWriter, r *http.Request) error {
+			//now := time.Now()
+
+			if err := next(w, r); err != nil {
+
+			}
+
 			logger.Write(logs.LogMsg{
 				Level: logs.InfoLogLevel,
 				Msg:   "Income request " + r.Method + " " + r.URL.Path,
