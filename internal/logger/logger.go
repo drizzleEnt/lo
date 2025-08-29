@@ -5,36 +5,38 @@ import (
 	"fmt"
 	"lo/internal/domain/logs"
 	"sync"
+	"time"
 )
+
+var m *sync.Mutex = &sync.Mutex{}
+var calls int
+
+var mu *sync.Mutex = &sync.Mutex{}
+var goroutinesCalls int
 
 type Option func(*Logger)
 
-func WithWorkers(workers int) Option {
-	return func(l *Logger) {
-		l.workers = workers
-	}
-}
-
-func WithBuffer(buffer int) Option {
+// With losing data but without freeze
+func WithSemaphore(buffer int) Option {
 	return func(l *Logger) {
 		l.buffer = buffer
+		l.sem = make(chan struct{}, buffer)
 	}
 }
 
 type Logger struct {
-	logChan  chan logs.LogMsg
-	stopChan chan struct{}
-	workers  int
-	buffer   int
-	wg       *sync.WaitGroup
+	sem    chan struct{}
+	buffer int
 }
 
 func New(opts ...Option) *Logger {
-	return &Logger{
-		logChan:  make(chan logs.LogMsg),
-		stopChan: make(chan struct{}),
-		wg:       &sync.WaitGroup{},
+	l := &Logger{}
+
+	for _, opt := range opts {
+		opt(l)
 	}
+
+	return l
 }
 
 func (l *Logger) Run(ctx context.Context) error {
@@ -45,8 +47,8 @@ func (l *Logger) Run(ctx context.Context) error {
 			fmt.Println("logger ctx canceled")
 			l.Stop()
 			return nil
-		case log := <-l.logChan:
-			fmt.Println("logger get new log", log)
+		default:
+			continue
 		}
 	}
 }
@@ -56,7 +58,43 @@ func (l *Logger) Stop() {
 }
 
 func (l *Logger) Write(in logs.LogMsg) {
+	l.withSem(func() {
+		l.saveLog(in)
+	})
+}
+
+func (l *Logger) withSem(f func()) {
+	if l.sem == nil {
+		f()
+		return
+	}
+
+	m.Lock()
+	calls++
+	m.Unlock()
+
+	select {
+	case l.sem <- struct{}{}:
+	default:
+		return
+	}
+
 	go func() {
-		l.logChan <- in
+		f()
+
+		<-l.sem
 	}()
+	mu.Lock()
+	goroutinesCalls++
+	mu.Unlock()
+}
+
+func (l *Logger) saveLog(log logs.LogMsg) {
+	fmt.Println("logger get new log", log)
+	time.Sleep(1 * time.Second)
+	fmt.Println("logger save log in storage", log)
+}
+
+func Stats() (int, int) {
+	return calls, goroutinesCalls
 }

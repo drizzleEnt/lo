@@ -10,13 +10,13 @@ func InitRoutes(c controllers.TaskController, logger middlerware.Logger) http.Ha
 	mux := http.NewServeMux()
 
 	logMW := middlerware.Logging(logger)
-	errMW := middlerware.ErrorLogging(logger)
+	//errMW := middlerware.ErrorLogging(logger)
 
-	common := withCommon(logMW, errMW)
+	common := withCommon(logMW)
 
 	mux.Handle("/tasks", adapt(c.GetTasks, common...))
 
-	mux.Handle("/task", adapt(func(w http.ResponseWriter, r *http.Request) error {
+	mux.Handle("/task/", adapt(func(w http.ResponseWriter, r *http.Request) error {
 		switch r.Method {
 		case http.MethodGet:
 			return c.GetTaskById(w, r)
